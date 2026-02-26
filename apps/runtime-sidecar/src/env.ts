@@ -24,6 +24,10 @@ if (missingRequiredEnvKeys.length > 0) {
   );
 }
 
+const booleanFromEnvSchema = z
+  .enum(["true", "false", "1", "0"])
+  .transform((value) => value === "true" || value === "1");
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -42,7 +46,49 @@ const envSchema = z.object({
     .positive()
     .default(5000),
   RUNTIME_POD_IP: z.string().optional(),
-  OPENCLAW_GATEWAY_READY_URL: z.string().url().optional(),
+  OPENCLAW_BIN: z.string().min(1).default("openclaw"),
+  OPENCLAW_PROFILE: z.string().min(1).optional(),
+  RUNTIME_GATEWAY_PROBE_ENABLED: booleanFromEnvSchema.default("true"),
+  RUNTIME_GATEWAY_CLI_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10000),
+  RUNTIME_GATEWAY_LIVENESS_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5000),
+  RUNTIME_GATEWAY_DEEP_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
+  RUNTIME_GATEWAY_FAIL_DEGRADED_THRESHOLD: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3),
+  RUNTIME_GATEWAY_FAIL_UNHEALTHY_THRESHOLD: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3),
+  RUNTIME_GATEWAY_RECOVER_THRESHOLD: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2),
+  RUNTIME_GATEWAY_UNHEALTHY_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60000),
+  RUNTIME_GATEWAY_MIN_STATE_HOLD_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(15000),
 });
 
 const parsedEnv = envSchema.parse(process.env);
@@ -58,4 +104,12 @@ export const env = {
 export const envWarnings = {
   usedHostnameAsRuntimePoolId:
     !isProduction && parsedEnv.RUNTIME_POOL_ID === undefined,
+  deprecatedGatewayHttpEnvKeys: [
+    "OPENCLAW_GATEWAY_URL",
+    "OPENCLAW_GATEWAY_HEALTH_URL",
+    "OPENCLAW_GATEWAY_STATUS_URL",
+  ].filter((key) => {
+    const value = process.env[key];
+    return value !== undefined && value.trim().length > 0;
+  }),
 };

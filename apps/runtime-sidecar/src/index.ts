@@ -1,8 +1,8 @@
 import { registerPool } from "./api";
-import { waitGatewayReady } from "./config";
 import { env, envWarnings } from "./env";
+import { waitGatewayReady } from "./gateway-health";
 import { log } from "./log";
-import { runHeartbeatLoop, runPollLoop } from "./loops";
+import { runGatewayHealthLoops, runHeartbeatLoop, runPollLoop } from "./loops";
 import { createRuntimeState } from "./state";
 import { sleep } from "./utils";
 
@@ -39,11 +39,18 @@ async function main(): Promise<void> {
     });
   }
 
+  if (envWarnings.deprecatedGatewayHttpEnvKeys.length > 0) {
+    log("deprecated gateway HTTP env vars detected and ignored", {
+      keys: envWarnings.deprecatedGatewayHttpEnvKeys,
+    });
+  }
+
   log("starting runtime sidecar", { poolId: env.RUNTIME_POOL_ID });
   await waitGatewayReady();
   await registerPoolWithRetry();
   log("pool registered", { poolId: env.RUNTIME_POOL_ID });
 
+  runGatewayHealthLoops(state);
   void runHeartbeatLoop(state);
   await runPollLoop(state);
 }

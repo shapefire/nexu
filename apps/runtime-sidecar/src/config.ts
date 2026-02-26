@@ -5,29 +5,7 @@ import { fetchJson } from "./api";
 import { env } from "./env";
 import { log } from "./log";
 import type { RuntimeState } from "./state";
-import { sleep, withTimeout } from "./utils";
-
-export async function waitGatewayReady(): Promise<void> {
-  if (!env.OPENCLAW_GATEWAY_READY_URL) {
-    return;
-  }
-
-  for (;;) {
-    try {
-      const response = await fetch(env.OPENCLAW_GATEWAY_READY_URL, {
-        signal: withTimeout(env.RUNTIME_REQUEST_TIMEOUT_MS),
-      });
-      if (response.ok) {
-        log("gateway is ready");
-        return;
-      }
-    } catch {
-      // noop
-    }
-
-    await sleep(1000);
-  }
-}
+import { setConfigSyncStatus } from "./state";
 
 async function atomicWriteConfig(configJson: string): Promise<void> {
   await mkdir(dirname(env.OPENCLAW_CONFIG_PATH), { recursive: true });
@@ -54,7 +32,7 @@ export async function pollLatestConfig(state: RuntimeState): Promise<boolean> {
 
   state.lastConfigHash = payload.configHash;
   state.lastSeenVersion = payload.version;
-  state.status = "active";
+  setConfigSyncStatus(state, "active");
 
   log("applied new pool config", {
     poolId: payload.poolId,
