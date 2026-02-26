@@ -57,5 +57,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "nexu.secretName" -}}
+{{- if .Values.secret.existingSecretName -}}
+{{- .Values.secret.existingSecretName | trunc 63 | trimSuffix "-" -}}
+{{- else if .Values.secret.create -}}
 {{- printf "%s-secrets" (include "nexu.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- fail "secret.existingSecretName is required when secret.create=false" -}}
+{{- end -}}
 {{- end -}}

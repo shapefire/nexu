@@ -44,3 +44,19 @@ helm upgrade --install nexu ./deploy/k8s/helm/nexu \
 ## Sensitive Values
 
 Do not keep production secrets in `values.yaml`. Pass secrets with CI/CD or use `ExternalSecrets`.
+
+## External Secrets
+
+This chart can either create a Secret from values or reference an existing Secret.
+
+- Default behavior (create Secret): `secret.create=true`
+- Use external Secret: set `secret.create=false` and `secret.existingSecretName=<your-secret-name>`
+
+Example:
+
+```bash
+helm upgrade --install nexu ./deploy/k8s/helm/nexu \
+  --namespace nexu \
+  --set secret.create=false \
+  --set secret.existingSecretName=nexu-app-secrets
+```
