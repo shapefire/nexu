@@ -400,7 +400,7 @@ slack: drop message (channel not allowed)
 
 ### 上线需要改什么
 
-总结：需要把 Gateway 容器化并实现启动时自动拉配置 + 注册 Pod IP，将 Slack 入口域名和秘钥迁移到 K8s Ingress/Secrets，补齐 Nexu API 到 Gateway 的配置变更通知链路（Gateway 自身已支持热加载，缺的是触发机制），以及将 Gateway 网络绑定从 loopback 改为 lan 以接受跨 Pod 流量。
+总结：需要把 Gateway 容器化并实现启动时自动拉配置 + 注册 Pod IP，将 Slack 入口域名和秘钥迁移到 K8s Ingress/Secrets，实现 Config Sync Sidecar 完成配置变更通知链路（Gateway 的 chokidar 文件监听已内置，Sidecar 监听 Redis PubSub 后拉配置写文件即可触发热加载），以及将 Gateway 网络绑定从 loopback 改为 lan 以接受跨 Pod 流量。
 
 1. **Gateway Docker 镜像** — 基于 OpenClaw 构建，启动脚本在 entrypoint 中调用 Nexu API 拉取配置：
    ```bash
@@ -413,9 +413,11 @@ slack: drop message (channel not allowed)
 
 2. **Pod IP 注册** — Pod 启动后需将自身 IP 写回 `gateway_pools.pod_ip`（通过 K8s downward API 或启动脚本调 Nexu API）
 
-3. **配置变更通知** — Gateway 自身已支持热加载（`reload.mode: "hybrid"`），缺的是触发机制。当用户在 Dashboard 修改 bot 设置后，需要有人通知 Gateway 重新拉配置。两种方式：
-   - Gateway 轮询：定期调 config 端点检查 `configVersion` 变更
-   - API 推送：调 Gateway 的 reload 端点触发
+3. **Config Sync Sidecar** — Gateway 的 chokidar 文件监听已内置，不需要改 Gateway 代码。需要实现一个 Sidecar 容器（设计文档：`docs/designs/openclaw-multi-tenant.md`），职责：
+   - 监听 Redis PubSub 的配置变更通知
+   - 调 `GET /api/internal/pools/{poolId}/config` 拉最新配置
+   - 原子写入共享卷 `/etc/openclaw/config.json`（写 temp 文件再 rename）
+   - Gateway chokidar 自动检测到文件变更并热加载，零重启
 
 4. **Slack Event Subscriptions URL** — 从 cloudflared 隧道改为正式域名：
    ```
