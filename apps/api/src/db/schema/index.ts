@@ -182,7 +182,7 @@ export const poolConfigSnapshots = pgTable(
       table.poolId,
       table.version,
     ),
-    uniqueIndex("pool_config_snapshots_pool_hash_idx").on(
+    index("pool_config_snapshots_pool_hash_idx").on(
       table.poolId,
       table.configHash,
     ),

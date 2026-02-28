@@ -40,28 +40,30 @@ export async function publishPoolConfigSnapshot(
   const config = await generatePoolConfig(db, poolId);
   const configHash = toHash(config);
 
-  const [existingByHash] = await db
-    .select()
-    .from(poolConfigSnapshots)
-    .where(
-      and(
-        eq(poolConfigSnapshots.poolId, poolId),
-        eq(poolConfigSnapshots.configHash, configHash),
-      ),
-    )
-    .orderBy(desc(poolConfigSnapshots.version))
-    .limit(1);
-
-  if (existingByHash) {
-    return parseSnapshot(existingByHash);
-  }
-
   const [latest] = await db
     .select({ version: poolConfigSnapshots.version })
     .from(poolConfigSnapshots)
     .where(eq(poolConfigSnapshots.poolId, poolId))
     .orderBy(desc(poolConfigSnapshots.version))
     .limit(1);
+
+  // Skip if the latest snapshot already has the same hash (true no-op)
+  if (latest) {
+    const [latestFull] = await db
+      .select()
+      .from(poolConfigSnapshots)
+      .where(
+        and(
+          eq(poolConfigSnapshots.poolId, poolId),
+          eq(poolConfigSnapshots.version, latest.version),
+        ),
+      )
+      .limit(1);
+
+    if (latestFull && latestFull.configHash === configHash) {
+      return parseSnapshot(latestFull);
+    }
+  }
 
   const nextVersion = (latest?.version ?? 0) + 1;
   const now = new Date().toISOString();

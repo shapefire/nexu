@@ -168,7 +168,8 @@ export async function migrate(dbUrl?: string) {
       created_at TEXT NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS pool_config_snapshots_pool_version_idx ON pool_config_snapshots(pool_id, version);
-    CREATE UNIQUE INDEX IF NOT EXISTS pool_config_snapshots_pool_hash_idx ON pool_config_snapshots(pool_id, config_hash);
+    DROP INDEX IF EXISTS pool_config_snapshots_pool_hash_idx;
+    CREATE INDEX IF NOT EXISTS pool_config_snapshots_pool_hash_idx ON pool_config_snapshots(pool_id, config_hash);
 
     CREATE TABLE IF NOT EXISTS oauth_states (
       pk SERIAL PRIMARY KEY,
