@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import { track } from "@/lib/tracking";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -108,6 +109,10 @@ export function WorkspaceLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
+
+  useEffect(() => {
+    track("workspace_view");
+  }, []);
 
   useEffect(() => {
     if (!showLogoutConfirm) return;
@@ -224,7 +229,12 @@ export function WorkspaceLayout() {
                   <button
                     type="button"
                     key={s.id}
-                    onClick={() => navigate(`/workspace/sessions/${s.id}`)}
+                    onClick={() => {
+                      track("workspace_channel_click", {
+                        channel_type: s.channelType ?? "web",
+                      });
+                      navigate(`/workspace/sessions/${s.id}`);
+                    }}
                     title={collapsed ? (s.title ?? undefined) : undefined}
                     className={cn(
                       "flex items-center gap-2.5 w-full rounded-lg transition-colors cursor-pointer",
@@ -290,6 +300,7 @@ export function WorkspaceLayout() {
             <Link
               to="/workspace/channels"
               title={collapsed ? "Channels" : undefined}
+              onClick={() => track("workspace_config_click")}
               className={cn(
                 "flex items-center gap-2 w-full rounded-lg text-[12px] font-medium transition-colors cursor-pointer mt-1",
                 collapsed ? "justify-center p-2" : "px-3 py-2",

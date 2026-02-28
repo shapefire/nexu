@@ -357,5 +357,24 @@ const stats = [
       </footer>
 
     </div>
+    <script>
+      import * as amplitude from "@amplitude/unified";
+
+      const apiKey = import.meta.env.PUBLIC_AMPLITUDE_API_KEY;
+      if (apiKey) {
+        amplitude.initAll(apiKey, {
+          analytics: { autocapture: true },
+          sessionReplay: { sampleRate: 1 },
+        });
+
+        amplitude.track("landing_view");
+
+        document.querySelectorAll<HTMLAnchorElement>('a[href="/auth"]').forEach((el) => {
+          el.addEventListener("click", () => {
+            amplitude.track("landing_cta_click");
+          });
+        });
+      }
+    </script>
   </body>
 </html>

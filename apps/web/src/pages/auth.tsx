@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import { identify, setUserId, track } from "@/lib/tracking";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
@@ -149,12 +150,38 @@ export function AuthPage() {
           return;
         }
       }
+      track(isLogin ? "login_email_success" : "signup_email_success");
+      identify({
+        auth_method: "email",
+        user_email: email,
+        ...(isLogin ? {} : { signup_date: new Date().toISOString() }),
+      });
       navigate("/invite");
     } catch {
       toast.error("Verification failed");
       setVerifying(false);
     }
   };
+
+  useEffect(() => {
+    if (!session?.user) return;
+    setUserId(session.user.id);
+    const mode = sessionStorage.getItem("nexu_auth_mode");
+    const provider = sessionStorage.getItem("nexu_auth_provider");
+    sessionStorage.removeItem("nexu_auth_mode");
+    sessionStorage.removeItem("nexu_auth_provider");
+    if (provider) {
+      const event =
+        mode === "login"
+          ? `login_${provider}_success`
+          : `signup_${provider}_success`;
+      track(event);
+      identify({
+        auth_method: provider,
+        user_email: session.user.email,
+      });
+    }
+  }, [session?.user]);
 
   if (isPending) {
     return (
@@ -170,6 +197,8 @@ export function AuthPage() {
 
   const handleOAuth = async (provider: "google") => {
     setLoading(provider);
+    sessionStorage.setItem("nexu_auth_mode", isLogin ? "login" : "signup");
+    sessionStorage.setItem("nexu_auth_provider", provider);
     try {
       await authClient.signIn.social({
         provider,
@@ -210,6 +239,8 @@ export function AuthPage() {
           setLoading(null);
           return;
         }
+        track("login_email_success");
+        identify({ auth_method: "email", user_email: email });
         navigate("/invite");
       } else {
         const { error } = await authClient.signUp.email({

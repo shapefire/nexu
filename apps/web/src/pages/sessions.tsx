@@ -1,3 +1,4 @@
+import { track } from "@/lib/tracking";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -7,6 +8,7 @@ import {
   Loader2,
   MessageSquare,
 } from "lucide-react";
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { getApiV1Artifacts, getApiV1SessionsById } from "../../lib/api/sdk.gen";
 
@@ -95,6 +97,10 @@ function MetaTag({
 
 export function SessionsPage() {
   const { id } = useParams<{ id: string }>();
+
+  useEffect(() => {
+    if (id) track("session_start");
+  }, [id]);
 
   const { data: session } = useQuery({
     queryKey: ["session", id],

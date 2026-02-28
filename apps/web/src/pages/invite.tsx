@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { track } from "@/lib/tracking";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -47,6 +48,7 @@ export function InvitePage() {
     },
     onSuccess: (data) => {
       if (data?.valid) {
+        track("invite_success");
         setSuccess(true);
         setTimeout(() => navigate("/onboarding"), 1200);
       } else {

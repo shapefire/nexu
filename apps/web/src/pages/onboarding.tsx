@@ -1,10 +1,18 @@
+import { identify, track } from "@/lib/tracking";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import "@/lib/api";
 import { client } from "@/lib/api";
+import { whatsappQrImageUrl, whatsappWaMeUrl } from "@/lib/whatsapp";
 import {
   getApiV1ChannelsSlackOauthUrl,
   getApiV1Me,
@@ -952,7 +960,7 @@ function ChannelConnectModal({
   const [oauthLoading, setOauthLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // WhatsApp — coming soon
+  // WhatsApp QR connect
   if (channelId === "whatsapp" || !steps || !fields) {
     return (
       <div
@@ -968,11 +976,36 @@ function ChannelConnectModal({
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">{"\u{1F4F1}"}</span>
           </div>
-          <p className="text-[13px] text-text-secondary mb-1">
-            WhatsApp Business API integration is under development.
+          <p className="text-[13px] font-medium text-text-primary mb-1">
+            Scan to connect on WhatsApp
           </p>
-          <p className="text-[11px] text-text-muted mb-5">
-            Vote for it to help us prioritize!
+          <p className="text-[11px] text-text-muted mb-4">
+            Use your WhatsApp app to scan this QR code.
+          </p>
+          <div className="mx-auto mb-4 w-full max-w-[220px] rounded-xl border border-border bg-white p-2">
+            <img
+              src={whatsappQrImageUrl}
+              alt="WhatsApp QR code"
+              className="w-full h-auto rounded-lg"
+            />
+          </div>
+          <a
+            href={whatsappWaMeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-3 py-2 text-[12px] font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+          >
+            Open WhatsApp
+          </a>
+          <p className="mt-3 mb-5 text-[11px] text-text-muted break-all">
+            <a
+              href={whatsappWaMeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-text-secondary underline underline-offset-2"
+            >
+              {whatsappWaMeUrl}
+            </a>
           </p>
           <button
             type="button"
@@ -1021,6 +1054,8 @@ function ChannelConnectModal({
         if (error) throw new Error("Connection failed");
       }
       toast.success(`${channelName} connected!`);
+      track("channel_ready", { channel: channelId });
+      identify({ primary_platform: channelId, channels_connected: 1 });
       // Advance to next step (events/test) if there is one, otherwise close
       if (stepIdx < steps.length - 1) {
         setStepIdx(stepIdx + 1);
@@ -1798,6 +1833,14 @@ export function OnboardingPage() {
 
   const returnTo = searchParams.get("returnTo") || "/workspace";
 
+  const trackedStart = useRef(false);
+  useEffect(() => {
+    if (!trackedStart.current) {
+      track("onboarding_start");
+      trackedStart.current = true;
+    }
+  }, []);
+
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
@@ -1835,6 +1878,13 @@ export function OnboardingPage() {
       if (stepData) setData(newData);
       if (currentStep < STEPS.length - 1) setCurrentStep(newStep);
       saveProgress(newStep, newData);
+      // Identify user properties per step
+      if (currentStep === 0 && newData.role)
+        identify({ user_role: newData.role });
+      if (currentStep === 1 && newData.useCases)
+        identify({ use_cases: newData.useCases });
+      if (currentStep === 2 && newData.referralSource)
+        identify({ referral_source: newData.referralSource });
     },
     [currentStep, data],
   );
@@ -1851,6 +1901,8 @@ export function OnboardingPage() {
     (stepData?: Partial<OnboardingData>) => {
       const finalData = { ...data, ...stepData } as OnboardingData;
       setData(finalData);
+      if (finalData.selectedAvatar)
+        identify({ avatar_choice: finalData.selectedAvatar });
       completeMutation.mutate(finalData);
     },
     [data, completeMutation],

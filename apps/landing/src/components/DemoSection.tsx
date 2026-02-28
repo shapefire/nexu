@@ -1,3 +1,4 @@
+import * as amplitude from "@amplitude/unified";
 import {
   BarChart3,
   ChevronDown,
@@ -452,7 +453,10 @@ export default function DemoSection() {
           <button
             type="button"
             key={s.key}
-            onClick={() => setActiveDemo(s.key)}
+            onClick={() => {
+              setActiveDemo(s.key);
+              amplitude.track("landing_try_live_click", { channel: s.key });
+            }}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
               activeDemo === s.key
                 ? "bg-accent text-accent-fg"
