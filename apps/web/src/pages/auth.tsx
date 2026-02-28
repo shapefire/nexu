@@ -173,7 +173,7 @@ export function AuthPage() {
     try {
       await authClient.signIn.social({
         provider,
-        callbackURL: window.location.origin,
+        callbackURL: `${window.location.origin}/workspace`,
       });
     } catch {
       setLoading(null);
