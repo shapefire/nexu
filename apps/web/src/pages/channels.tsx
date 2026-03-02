@@ -877,6 +877,7 @@ function ConfiguredView({
   onShowGuide: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
@@ -886,9 +887,11 @@ function ConfiguredView({
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
+      setShowResetConfirm(false);
       queryClient.invalidateQueries({ queryKey: ["channels"] });
       toast.success(`${PLATFORM_LABELS[platform]} disconnected`);
     },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const handleCopy = (text: string) => {
@@ -903,149 +906,218 @@ function ConfiguredView({
     : null;
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      {/* Status banner */}
-      <div className="flex gap-3 items-center p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/15">
-        <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-emerald-500/10 shrink-0">
-          <CheckCircle2 size={18} className="text-emerald-500" />
-        </div>
-        <div className="flex-1">
-          <div className="text-[13px] font-semibold text-text-primary">
-            {PLATFORM_LABELS[platform]} Bot Connected
+    <>
+      <div className="space-y-5 max-w-2xl">
+        {/* Status banner */}
+        <div className="flex gap-3 items-center p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/15">
+          <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-emerald-500/10 shrink-0">
+            <CheckCircle2 size={18} className="text-emerald-500" />
           </div>
-          <div className="text-[11px] text-text-muted mt-0.5">
-            {channel.teamName ?? channel.accountId}
-            {channel.createdAt &&
-              ` · configured ${new Date(channel.createdAt).toLocaleDateString()}`}
-            {" · "}connection active
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onShowGuide}
-          className="flex gap-1.5 items-center px-3 py-1.5 text-[11px] text-text-muted rounded-lg border border-border hover:border-border-hover hover:text-text-secondary transition-all shrink-0"
-        >
-          <BookOpen size={11} /> Setup Guide
-        </button>
-      </div>
-
-      {/* Discord: Add Bot to Server */}
-      {platform === "discord" && discordInviteUrl && (
-        <div className="p-5 rounded-xl border bg-surface-1 border-border">
-          <div className="flex gap-2 items-center mb-4">
-            <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-indigo-500/10 shrink-0">
-              <ExternalLink size={13} className="text-indigo-500" />
+          <div className="flex-1">
+            <div className="text-[13px] font-semibold text-text-primary">
+              {PLATFORM_LABELS[platform]} Bot Connected
             </div>
-            <h3 className="text-[13px] font-semibold text-text-primary">
-              Add to Server
-            </h3>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              {channel.teamName ?? channel.accountId}
+              {channel.createdAt &&
+                ` · configured ${new Date(channel.createdAt).toLocaleDateString()}`}
+              {" · "}connection active
+            </div>
           </div>
-          <p className="text-[12px] text-text-muted mb-3 leading-relaxed">
-            Use the link below to invite the Bot to your Discord server.
-          </p>
-          <a
-            href={discordInviteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex gap-1.5 items-center px-4 py-2 text-[12px] font-medium text-white rounded-lg bg-accent hover:bg-accent-hover transition-all"
+          <button
+            type="button"
+            onClick={onShowGuide}
+            className="flex gap-1.5 items-center px-3 py-1.5 text-[11px] text-text-muted rounded-lg border border-border hover:border-border-hover hover:text-text-secondary transition-all shrink-0"
           >
-            <ExternalLink size={13} /> Add Bot to Server
-          </a>
+            <BookOpen size={11} /> Setup Guide
+          </button>
         </div>
-      )}
 
-      {/* Slack: Webhook URL */}
-      {platform === "slack" && (
+        {/* Discord: Add Bot to Server */}
+        {platform === "discord" && discordInviteUrl && (
+          <div className="p-5 rounded-xl border bg-surface-1 border-border">
+            <div className="flex gap-2 items-center mb-4">
+              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-indigo-500/10 shrink-0">
+                <ExternalLink size={13} className="text-indigo-500" />
+              </div>
+              <h3 className="text-[13px] font-semibold text-text-primary">
+                Add to Server
+              </h3>
+            </div>
+            <p className="text-[12px] text-text-muted mb-3 leading-relaxed">
+              Use the link below to invite the Bot to your Discord server.
+            </p>
+            <a
+              href={discordInviteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex gap-1.5 items-center px-4 py-2 text-[12px] font-medium text-white rounded-lg bg-accent hover:bg-accent-hover transition-all"
+            >
+              <ExternalLink size={13} /> Add Bot to Server
+            </a>
+          </div>
+        )}
+
+        {/* Slack: Webhook URL */}
+        {platform === "slack" && (
+          <div className="p-5 rounded-xl border bg-surface-1 border-border">
+            <div className="flex gap-2 items-center mb-4">
+              <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-blue-500/10 shrink-0">
+                <Link2 size={13} className="text-blue-500" />
+              </div>
+              <h3 className="text-[13px] font-semibold text-text-primary">
+                Webhook URL
+              </h3>
+            </div>
+            <div className="flex gap-2 items-center p-3 rounded-lg border bg-surface-0 border-border font-mono text-[12px]">
+              <code className="flex-1 break-all text-text-secondary">
+                {webhookUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => handleCopy(webhookUrl)}
+                className="p-1.5 rounded-lg transition-all text-text-muted hover:text-text-primary hover:bg-surface-3 shrink-0"
+                title="Copy"
+              >
+                {copied ? (
+                  <Check size={13} className="text-emerald-500" />
+                ) : (
+                  <Copy size={13} />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Credentials */}
         <div className="p-5 rounded-xl border bg-surface-1 border-border">
           <div className="flex gap-2 items-center mb-4">
-            <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-blue-500/10 shrink-0">
-              <Link2 size={13} className="text-blue-500" />
+            <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-amber-500/10 shrink-0">
+              <Key size={13} className="text-amber-500" />
             </div>
             <h3 className="text-[13px] font-semibold text-text-primary">
-              Webhook URL
+              Credentials
             </h3>
           </div>
-          <div className="flex gap-2 items-center p-3 rounded-lg border bg-surface-0 border-border font-mono text-[12px]">
-            <code className="flex-1 break-all text-text-secondary">
-              {webhookUrl}
-            </code>
-            <button
-              type="button"
-              onClick={() => handleCopy(webhookUrl)}
-              className="p-1.5 rounded-lg transition-all text-text-muted hover:text-text-primary hover:bg-surface-3 shrink-0"
-              title="Copy"
-            >
-              {copied ? (
-                <Check size={13} className="text-emerald-500" />
-              ) : (
-                <Copy size={13} />
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Credentials */}
-      <div className="p-5 rounded-xl border bg-surface-1 border-border">
-        <div className="flex gap-2 items-center mb-4">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-amber-500/10 shrink-0">
-            <Key size={13} className="text-amber-500" />
-          </div>
-          <h3 className="text-[13px] font-semibold text-text-primary">
-            Credentials
-          </h3>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <span className="text-[11px] text-text-muted font-medium mb-1.5 block">
-              Account ID
-            </span>
-            <div className="px-3 py-2.5 w-full text-[13px] rounded-lg border border-border bg-surface-0 text-text-secondary">
-              {channel.accountId}
-            </div>
-          </div>
-          {channel.teamName && (
+          <div className="space-y-3">
             <div>
               <span className="text-[11px] text-text-muted font-medium mb-1.5 block">
-                {platform === "discord" ? "Server Name" : "Team Name"}
+                Account ID
               </span>
               <div className="px-3 py-2.5 w-full text-[13px] rounded-lg border border-border bg-surface-0 text-text-secondary">
-                {channel.teamName}
+                {channel.accountId}
               </div>
             </div>
-          )}
+            {channel.teamName && (
+              <div>
+                <span className="text-[11px] text-text-muted font-medium mb-1.5 block">
+                  {platform === "discord" ? "Server Name" : "Team Name"}
+                </span>
+                <div className="px-3 py-2.5 w-full text-[13px] rounded-lg border border-border bg-surface-0 text-text-secondary">
+                  {channel.teamName}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Danger zone */}
+        <div className="p-5 rounded-xl border border-border bg-surface-1">
+          <div className="flex gap-2 items-center mb-3">
+            <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-red-500/10 shrink-0">
+              <Shield size={13} className="text-red-400" />
+            </div>
+            <h3 className="text-[13px] font-semibold text-text-primary">
+              Reset Configuration
+            </h3>
+          </div>
+          <p className="text-[12px] text-text-muted mb-3.5 leading-relaxed">
+            This will remove the current {PLATFORM_LABELS[platform]} Bot
+            configuration. You will need to complete the setup process again.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            disabled={disconnectMutation.isPending}
+            className="flex gap-1.5 items-center px-3.5 py-2 text-[12px] font-medium text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/5 hover:border-red-500/30 transition-all disabled:opacity-60"
+          >
+            {disconnectMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RotateCcw size={12} />
+            )}
+            Reset & Reconfigure
+          </button>
         </div>
       </div>
 
-      {/* Danger zone */}
-      <div className="p-5 rounded-xl border border-border bg-surface-1">
-        <div className="flex gap-2 items-center mb-3">
-          <div className="flex justify-center items-center w-7 h-7 rounded-lg bg-red-500/10 shrink-0">
-            <Shield size={13} className="text-red-400" />
-          </div>
-          <h3 className="text-[13px] font-semibold text-text-primary">
-            Reset Configuration
-          </h3>
-        </div>
-        <p className="text-[12px] text-text-muted mb-3.5 leading-relaxed">
-          This will remove the current {PLATFORM_LABELS[platform]} Bot
-          configuration. You will need to complete the setup process again.
-        </p>
-        <button
-          type="button"
-          onClick={() => disconnectMutation.mutate()}
-          disabled={disconnectMutation.isPending}
-          className="flex gap-1.5 items-center px-3.5 py-2 text-[12px] font-medium text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/5 hover:border-red-500/30 transition-all disabled:opacity-60"
+      {showResetConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+          onClick={() =>
+            !disconnectMutation.isPending && setShowResetConfirm(false)
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !disconnectMutation.isPending) {
+              setShowResetConfirm(false);
+            }
+          }}
         >
-          {disconnectMutation.isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RotateCcw size={12} />
-          )}
-          Reset & Reconfigure
-        </button>
-      </div>
-    </div>
+          <div
+            className="w-full max-w-[420px] rounded-2xl border border-border bg-surface-1 shadow-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 shrink-0">
+                  <Shield size={14} className="text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-semibold text-text-primary">
+                    Confirm reset
+                  </h3>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    {PLATFORM_LABELS[platform]} will be disconnected.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-[12px] text-text-secondary leading-relaxed">
+                This will remove your current {PLATFORM_LABELS[platform]} Bot
+                configuration. You will need to complete setup again before Nexu
+                can receive messages from this platform.
+              </p>
+              <div className="mt-4 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={disconnectMutation.isPending}
+                  className="px-3.5 py-2 text-[12px] font-medium text-text-secondary rounded-lg border border-border hover:border-border-hover hover:bg-surface-3 transition-all disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white rounded-lg bg-red-500 hover:bg-red-600 transition-all disabled:opacity-60"
+                >
+                  {disconnectMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw size={12} />
+                  )}
+                  Confirm reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
