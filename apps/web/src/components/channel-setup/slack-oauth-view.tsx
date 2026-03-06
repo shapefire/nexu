@@ -109,6 +109,8 @@ export interface SlackOAuthViewProps {
   oauthReturnTo?: string;
   /** Error message from a failed OAuth attempt (passed via query param) */
   oauthError?: string;
+  /** Disable all connect actions (e.g. quota exceeded) */
+  disabled?: boolean;
 }
 
 export function SlackOAuthView({
@@ -117,6 +119,7 @@ export function SlackOAuthView({
   initialManual,
   oauthReturnTo,
   oauthError,
+  disabled,
 }: SlackOAuthViewProps) {
   const [phase, setPhase] = useState<"install" | "authorizing" | "manual">(
     initialManual ? "manual" : "install",
@@ -215,8 +218,8 @@ export function SlackOAuthView({
     }
   };
 
-  const wrapperClass = variant === "modal" ? "" : "max-w-md mx-auto";
-  const manualWrapperClass = variant === "modal" ? "" : "max-w-2xl";
+  const wrapperClass = variant === "modal" ? "" : "";
+  const manualWrapperClass = variant === "modal" ? "" : "";
 
   // Phase 1: Install (OAuth-first)
   if (phase === "install") {
@@ -246,7 +249,8 @@ export function SlackOAuthView({
           <button
             type="button"
             onClick={handleAddToSlack}
-            className="flex gap-2 items-center justify-center mx-auto px-6 py-3 text-[13px] font-medium text-white rounded-lg bg-[#4A154B] hover:bg-[#3a1039] transition-all cursor-pointer"
+            disabled={disabled}
+            className={`flex gap-2 items-center justify-center mx-auto px-6 py-3 text-[13px] font-medium text-white rounded-lg bg-[#4A154B] transition-all ${disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-[#3a1039] cursor-pointer"}`}
           >
             <svg
               width="16"
@@ -568,7 +572,12 @@ export function SlackOAuthView({
             <button
               type="button"
               onClick={handleManualConnect}
-              disabled={connecting || !botToken.trim() || !signingSecret.trim()}
+              disabled={
+                disabled ||
+                connecting ||
+                !botToken.trim() ||
+                !signingSecret.trim()
+              }
               className="flex gap-1.5 items-center px-5 py-2.5 text-[13px] font-medium text-white rounded-lg bg-[#4A154B] hover:bg-[#3a1039] transition-all disabled:opacity-60 cursor-pointer"
             >
               {connecting ? (

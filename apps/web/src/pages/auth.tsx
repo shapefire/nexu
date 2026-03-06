@@ -88,7 +88,7 @@ export function AuthPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
-  const isLogin = searchParams.get("mode") === "login";
+  const isLogin = searchParams.get("mode") !== "signup";
   const [loading, setLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -157,7 +157,7 @@ export function AuthPage() {
         user_email: email,
         ...(isLogin ? {} : { signup_date: new Date().toISOString() }),
       });
-      navigate("/invite");
+      navigate("/workspace");
     } catch {
       toast.error("Verification failed");
       setVerifying(false);
@@ -193,7 +193,7 @@ export function AuthPage() {
   }
 
   if (session?.user) {
-    return <Navigate to="/invite" replace />;
+    return <Navigate to="/workspace" replace />;
   }
 
   const handleOAuth = async (provider: "google") => {
@@ -242,7 +242,7 @@ export function AuthPage() {
         }
         track("login_email_success");
         identify({ auth_method: "email", user_email: email });
-        navigate("/invite");
+        navigate("/workspace");
       } else {
         const { error } = await authClient.signUp.email({
           email,
@@ -637,7 +637,7 @@ export function AuthPage() {
                   : "Already have an account?"}
               </span>
               <Link
-                to={isLogin ? "/auth" : "/auth?mode=login"}
+                to={isLogin ? "/auth?mode=signup" : "/auth"}
                 className="text-[13px] text-accent font-medium ml-1 hover:underline underline-offset-2"
               >
                 {isLogin ? "Sign up" : "Log in"}

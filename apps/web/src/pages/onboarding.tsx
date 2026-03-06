@@ -1,9 +1,11 @@
 import { BrandMark } from "@/components/brand-mark";
 import { DiscordSetupView } from "@/components/channel-setup/discord-setup-view";
 import { SlackOAuthView } from "@/components/channel-setup/slack-oauth-view";
+import { useBotQuota } from "@/hooks/use-bot-quota";
+import { useCountdown } from "@/hooks/use-countdown";
 import { identify, track } from "@/lib/tracking";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -956,6 +958,8 @@ function ChannelsStep({
   const [modal, setModal] = useState<string | null>(null);
   const [slackManualFallback, setSlackManualFallback] = useState(false);
   const [slackErrorMsg, setSlackErrorMsg] = useState<string | undefined>();
+  const { available: quotaAvailable, resetsAt } = useBotQuota();
+  const quotaBlocked = !quotaAvailable && connected.length === 0;
 
   // Load already-connected channels from backend on mount
   useEffect(() => {
@@ -1042,6 +1046,8 @@ function ChannelsStep({
         </p>
       </div>
 
+      {quotaBlocked && <OnboardingQuotaBanner resetsAt={resetsAt} />}
+
       <div className="space-y-1 max-h-[380px] overflow-y-auto pr-1">
         {CHANNEL_OPTIONS.map((channel) => {
           const isConnected = connected.includes(channel.id);
@@ -1080,7 +1086,8 @@ function ChannelsStep({
                 <button
                   type="button"
                   onClick={() => setModal(channel.id)}
-                  className="px-3 py-1 text-[12px] font-medium rounded-md text-white shrink-0 cursor-pointer transition-colors"
+                  disabled={quotaBlocked}
+                  className={`px-3 py-1 text-[12px] font-medium rounded-md text-white shrink-0 transition-colors ${quotaBlocked ? "opacity-60 pointer-events-none" : "cursor-pointer"}`}
                   style={{ backgroundColor: channel.color }}
                 >
                   Connect
@@ -1141,6 +1148,27 @@ function ChannelsStep({
           oauthError={modal === "slack" ? slackErrorMsg : undefined}
         />
       )}
+    </div>
+  );
+}
+
+function OnboardingQuotaBanner({ resetsAt }: { resetsAt: string }) {
+  const countdown = useCountdown(resetsAt);
+  return (
+    <div className="flex gap-3 items-start p-3.5 rounded-lg border bg-red-500/5 border-red-500/15 mb-3">
+      <Clock size={14} className="mt-0.5 shrink-0 text-red-500" />
+      <div>
+        <div className="text-[12px] font-medium text-text-primary">
+          We're experiencing high demand
+        </div>
+        <p className="text-[11px] text-text-primary mt-0.5 leading-relaxed">
+          New bot setup will be available in{" "}
+          <span className="font-mono font-semibold text-text-primary">
+            {countdown}
+          </span>
+          . You can skip this step and come back later.
+        </p>
+      </div>
     </div>
   );
 }

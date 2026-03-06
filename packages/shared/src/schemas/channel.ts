@@ -57,3 +57,10 @@ export type ConnectDiscordInput = z.infer<typeof connectDiscordSchema>;
 export type ConnectFeishuInput = z.infer<typeof connectFeishuSchema>;
 export type ChannelResponse = z.infer<typeof channelResponseSchema>;
 export type SlackOAuthUrlResponse = z.infer<typeof slackOAuthUrlResponseSchema>;
+
+export const botQuotaResponseSchema = z.object({
+  available: z.boolean(),
+  resetsAt: z.string(),
+});
+
+export type BotQuotaResponse = z.infer<typeof botQuotaResponseSchema>;

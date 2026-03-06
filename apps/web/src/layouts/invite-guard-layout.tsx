@@ -23,11 +23,7 @@ export function InviteGuardLayout() {
     );
   }
 
-  if (profile && !profile.inviteAccepted) {
-    return <Navigate to="/invite" replace />;
-  }
-
-  // Onboarding guard: if invite accepted but onboarding not completed,
+  // Onboarding guard: if onboarding not completed,
   // and user is NOT already on the onboarding page, redirect there
   if (
     profile &&

@@ -4,7 +4,7 @@ import { BaseError, MiddlewareError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
 import type { AppBindings } from "../types.js";
 
-type ErrorHttpStatus = 400 | 401 | 403 | 404 | 500;
+type ErrorHttpStatus = 400 | 401 | 403 | 404 | 429 | 500;
 
 export type ErrorPolicy = {
   resolveStatus?: (
@@ -38,6 +38,13 @@ export const defaultErrorPolicy: Required<ErrorPolicy> = {
     }
 
     if (
+      error.type === "service_error" &&
+      error.context.code === "daily_bot_limit_exceeded"
+    ) {
+      return 429;
+    }
+
+    if (
       error.type === "entry_error" &&
       typeof error.context.status === "number"
     ) {
@@ -47,6 +54,7 @@ export const defaultErrorPolicy: Required<ErrorPolicy> = {
         status === 401 ||
         status === 403 ||
         status === 404 ||
+        status === 429 ||
         status === 500
       ) {
         return status;

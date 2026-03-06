@@ -291,6 +291,27 @@ export async function generatePoolConfig(
               },
             }
           : {}),
+        ...(process.env.SANDBOX_ENABLED === "true"
+          ? {
+              sandbox: {
+                mode: "all" as const,
+                scope: "agent" as const,
+                docker: {
+                  image: "node:22-slim",
+                  memory: "256m",
+                  cpus: 0.5,
+                  pidsLimit: 128,
+                  network: "bridge",
+                  readOnlyRoot: true,
+                  capDrop: ["ALL"],
+                },
+                prune: {
+                  idleHours: 4,
+                  maxAgeDays: 3,
+                },
+              },
+            }
+          : {}),
       },
       list: agentList,
     },

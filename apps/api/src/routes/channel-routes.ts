@@ -1,6 +1,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import {
+  botQuotaResponseSchema,
   channelListResponseSchema,
   channelResponseSchema,
   connectDiscordSchema,
@@ -18,6 +19,7 @@ import {
   webhookRoutes,
 } from "../db/schema/index.js";
 import { findOrCreateDefaultBot } from "../lib/bot-helpers.js";
+import { checkBotQuota } from "../lib/bot-quota.js";
 import { encrypt } from "../lib/crypto.js";
 import { BaseError, ServiceError } from "../lib/error.js";
 import { logger } from "../lib/logger.js";
@@ -324,11 +326,30 @@ const channelStatusRoute = createRoute({
   },
 });
 
+const botQuotaRoute = createRoute({
+  method: "get",
+  path: "/api/v1/bot-quota",
+  tags: ["Channels"],
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: botQuotaResponseSchema },
+      },
+      description: "Bot creation quota status",
+    },
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Authenticated channel routes (under /v1/*)
 // ---------------------------------------------------------------------------
 
 export function registerChannelRoutes(app: OpenAPIHono<AppBindings>) {
+  // -- Bot quota check --
+  app.openapi(botQuotaRoute, async (c) => {
+    const quota = await checkBotQuota();
+    return c.json(quota, 200);
+  });
   // -- Slack redirect URI (lightweight, no state creation) --
   app.openapi(slackRedirectUriRoute, async (c) => {
     return c.json({ redirectUri: getSlackRedirectUri() }, 200);

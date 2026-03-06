@@ -1,6 +1,7 @@
 import { createRoute } from "@hono/zod-openapi";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { userProfileResponseSchema } from "@nexu/shared";
+import { createId } from "@paralleldrive/cuid2";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users } from "../db/schema/index.js";
@@ -25,10 +26,26 @@ export function registerUserRoutes(app: OpenAPIHono<AppBindings>) {
     const authUserId = c.get("userId");
     const session = c.get("session");
 
-    const [appUser] = await db
+    let [appUser] = await db
       .select()
       .from(users)
       .where(eq(users.authUserId, authUserId));
+
+    // Auto-create Nexu user record on first visit (no invite code required)
+    if (!appUser) {
+      const now = new Date().toISOString();
+      await db.insert(users).values({
+        id: createId(),
+        authUserId,
+        inviteAcceptedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      [appUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.authUserId, authUserId));
+    }
 
     return c.json(
       {
@@ -37,7 +54,7 @@ export function registerUserRoutes(app: OpenAPIHono<AppBindings>) {
         name: session.user.name,
         image: session.user.image ?? null,
         plan: appUser?.plan ?? "free",
-        inviteAccepted: !!appUser?.inviteAcceptedAt,
+        inviteAccepted: true,
         onboardingCompleted: !!appUser?.onboardingCompletedAt,
       },
       200,

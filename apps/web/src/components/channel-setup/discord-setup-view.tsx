@@ -45,11 +45,14 @@ export interface DiscordSetupViewProps {
   onConnected: () => void;
   /** Layout variant — "page" uses full width, "modal" constrains width */
   variant?: "page" | "modal";
+  /** Disable all connect actions (e.g. quota exceeded) */
+  disabled?: boolean;
 }
 
 export function DiscordSetupView({
   onConnected,
   variant = "page",
+  disabled,
 }: DiscordSetupViewProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [appId, setAppId] = useState("");
@@ -78,7 +81,7 @@ export function DiscordSetupView({
   };
 
   return (
-    <div className={variant === "modal" ? "" : "max-w-2xl"}>
+    <div className={variant === "modal" ? "" : ""}>
       {/* Step indicator */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
         {DISCORD_SETUP_STEPS.map((s, i) => (
@@ -387,7 +390,9 @@ export function DiscordSetupView({
             <button
               type="button"
               onClick={handleConnect}
-              disabled={connecting || !appId.trim() || !botToken.trim()}
+              disabled={
+                disabled || connecting || !appId.trim() || !botToken.trim()
+              }
               className="flex gap-1.5 items-center px-5 py-2.5 text-[13px] font-medium text-white rounded-lg bg-[#5865F2] hover:bg-[#4752C4] transition-all disabled:opacity-60 cursor-pointer"
             >
               {connecting ? (

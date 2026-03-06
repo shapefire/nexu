@@ -1,7 +1,8 @@
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, gte, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bots, gatewayAssignments, gatewayPools } from "../db/schema/index.js";
+import { DAILY_BOT_LIMIT, todayMidnightCST } from "./bot-quota.js";
 import { ServiceError } from "./error.js";
 
 export async function findDefaultPool(): Promise<string> {
@@ -39,6 +40,24 @@ export async function findOrCreateDefaultBot(
 
   if (existing) {
     return existing;
+  }
+
+  // Enforce daily bot creation limit
+  if (DAILY_BOT_LIMIT > 0) {
+    const midnight = todayMidnightCST();
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(bots)
+      .where(gte(bots.createdAt, midnight));
+    const todayCount = rows[0]?.count ?? 0;
+
+    if (todayCount >= DAILY_BOT_LIMIT) {
+      throw ServiceError.from("bot-helpers", {
+        code: "daily_bot_limit_exceeded",
+        message:
+          "We're experiencing high demand right now. Please try again later.",
+      });
+    }
   }
 
   // Create a default bot

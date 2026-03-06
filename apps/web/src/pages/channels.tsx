@@ -1,5 +1,7 @@
 import { DiscordSetupView } from "@/components/channel-setup/discord-setup-view";
 import { SlackOAuthView } from "@/components/channel-setup/slack-oauth-view";
+import { useBotQuota } from "@/hooks/use-bot-quota";
+import { useCountdown } from "@/hooks/use-countdown";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -8,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   Circle,
+  Clock,
   Copy,
   ExternalLink,
   Key,
@@ -73,9 +76,12 @@ export function ChannelsPage() {
     },
   });
 
+  const { available: quotaAvailable, resetsAt } = useBotQuota();
+
   const channels = channelsData?.channels ?? [];
   const currentChannel = channels.find((ch) => ch.channelType === platform);
   const isConfigured = !!currentChannel;
+  const quotaLimited = !quotaAvailable;
   const showGuide = !isConfigured || forceGuide;
 
   const handlePlatformChange = (p: Platform) => {
@@ -142,10 +148,12 @@ export function ChannelsPage() {
       </div>
 
       {/* Coming soon */}
-      <div className="flex gap-1.5 items-center mb-6 text-[11px] text-text-muted flex-wrap">
+      <div className="flex gap-1.5 items-center mb-4 text-[11px] text-text-muted flex-wrap">
         <Zap size={10} className="text-accent" />
         Telegram, Microsoft Teams, Line and more coming soon
       </div>
+
+      {quotaLimited && !isConfigured && <QuotaBanner resetsAt={resetsAt} />}
 
       {/* Back button when force-viewing guide for configured platform */}
       {isConfigured && forceGuide && (
@@ -165,11 +173,15 @@ export function ChannelsPage() {
             onConnected={handleConnected}
             initialManual={slackManual}
             oauthError={slackError}
+            disabled={quotaLimited}
           />
         ) : platform === "whatsapp" ? (
           <WhatsAppQRView />
         ) : (
-          <DiscordSetupView onConnected={handleConnected} />
+          <DiscordSetupView
+            onConnected={handleConnected}
+            disabled={quotaLimited}
+          />
         )
       ) : currentChannel ? (
         <ConfiguredView
@@ -234,7 +246,7 @@ function ConfiguredView({
 
   return (
     <>
-      <div className="space-y-4 sm:space-y-5 max-w-2xl">
+      <div className="space-y-4 sm:space-y-5">
         {/* Status banner */}
         <div className="flex flex-col items-start gap-3 p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/15 sm:flex-row sm:items-center">
           <div className="flex justify-center items-center w-9 h-9 rounded-lg bg-emerald-500/10 shrink-0">
@@ -515,6 +527,27 @@ function WhatsAppQRView() {
           </a>
           .
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Quota Banner ─────────────────────────────────────────
+
+function QuotaBanner({ resetsAt }: { resetsAt: string }) {
+  const countdown = useCountdown(resetsAt);
+  return (
+    <div className="flex gap-3 items-start p-4 rounded-xl border bg-red-500/5 border-red-500/15 mb-6">
+      <Clock size={16} className="mt-0.5 shrink-0 text-red-500" />
+      <div>
+        <div className="text-[13px] font-medium text-text-primary">
+          We're experiencing high demand
+        </div>
+        <p className="text-[12px] text-text-primary mt-0.5 leading-relaxed">
+          New bot setup will be available in{" "}
+          <span className="font-mono font-semibold">{countdown}</span>. Please
+          try again later.
+        </p>
       </div>
     </div>
   );
