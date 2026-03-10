@@ -429,6 +429,8 @@ export async function generatePoolConfig(
     config.channels.feishu = {
       enabled: true,
       connectionMode: "websocket",
+      streaming: true,
+      renderMode: "card",
       dmPolicy: "open",
       groupPolicy: "open",
       requireMention: true,
