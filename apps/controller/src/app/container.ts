@@ -124,6 +124,7 @@ export async function createContainer(): Promise<ControllerContainer> {
     openclawSyncService,
     openclawProcess,
   );
+  modelProviderService.setAuthService(openclawAuthService);
   const runtimeModelStateService = new RuntimeModelStateService(env);
 
   // Wire cloud state change callback to sync refreshed cloud inventory without

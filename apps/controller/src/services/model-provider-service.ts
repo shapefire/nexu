@@ -14,6 +14,7 @@ import { isSupportedByokProviderId } from "../lib/byok-providers.js";
 import { logger } from "../lib/logger.js";
 import type { OpenClawProcessManager } from "../runtime/openclaw-process.js";
 import type { NexuConfigStore } from "../store/nexu-config-store.js";
+import type { OpenClawAuthService } from "./openclaw-auth-service.js";
 import type { OpenClawSyncService } from "./openclaw-sync-service.js";
 
 export interface ModelAutoSelectResult {
@@ -255,7 +256,12 @@ function getOpenClawCommandSpec(env: ControllerEnv): {
   };
 }
 
+// Providers that support OAuth login (no API key needed).
+const OAUTH_PROVIDER_IDS = new Set(["openai"]);
+
 export class ModelProviderService {
+  private openclawAuthService: OpenClawAuthService | null = null;
+
   private miniMaxOauthAbortController: AbortController | null = null;
 
   private miniMaxOauthBrowserUrl: string | null = null;
@@ -287,11 +293,42 @@ export class ModelProviderService {
     private readonly openclawProcess: OpenClawProcessManager,
   ) {}
 
+  /**
+   * Inject the auth service after construction to avoid circular deps.
+   */
+  setAuthService(authService: OpenClawAuthService): void {
+    this.openclawAuthService = authService;
+  }
+
   async listModels() {
     await this.refreshMiniMaxOauthModelsIfNeeded();
 
     const config = await this.configStore.getConfig();
     const desktopCloud = await this.configStore.getDesktopCloudStatus();
+    const providers = config.providers.filter(
+      (provider) =>
+        provider.enabled && isSupportedByokProviderId(provider.providerId),
+    );
+    const { cloudModels, byokModels } = await this.getAvailableModels(
+      providers,
+      desktopCloud,
+    );
+
+    return {
+      models: [...cloudModels, ...byokModels],
+    };
+  }
+
+  private async getAvailableModels(
+    providers: ReadonlyArray<{
+      providerId: string;
+      apiKey: string | null;
+      models: string[];
+    }>,
+    desktopCloud: {
+      models?: Array<{ id: string; name?: string | null }> | null;
+    },
+  ): Promise<{ cloudModels: Model[]; byokModels: Model[] }> {
     const cloudModels: Model[] = (desktopCloud.models ?? []).map((model) => ({
       id: model.id,
       name: model.name || model.id,
@@ -299,21 +336,44 @@ export class ModelProviderService {
       description: "Cloud model via Nexu Link",
     }));
 
-    const providers = config.providers.filter(
-      (provider) =>
-        provider.enabled && isSupportedByokProviderId(provider.providerId),
-    );
-    const byokModels: Model[] = providers.flatMap((provider) =>
-      provider.models.map((modelId) => ({
-        id: `${provider.providerId}/${modelId}`,
-        name: modelId,
-        provider: provider.providerId,
-      })),
-    );
+    // Exclude OAuth-only providers whose token has expired
+    const expiredOAuthProviderIds =
+      await this.getExpiredOAuthProviderIds(providers);
 
-    return {
-      models: [...cloudModels, ...byokModels],
-    };
+    const byokModels: Model[] = providers
+      .filter((provider) => !expiredOAuthProviderIds.has(provider.providerId))
+      .flatMap((provider) =>
+        provider.models.map((modelId) => ({
+          id: `${provider.providerId}/${modelId}`,
+          name: modelId,
+          provider: provider.providerId,
+        })),
+      );
+
+    return { cloudModels, byokModels };
+  }
+
+  /**
+   * Returns provider IDs that use OAuth (no API key) and whose token is expired.
+   */
+  private async getExpiredOAuthProviderIds(
+    providers: ReadonlyArray<{ providerId: string; apiKey: string | null }>,
+  ): Promise<Set<string>> {
+    if (!this.openclawAuthService) return new Set();
+
+    const expired = new Set<string>();
+    for (const provider of providers) {
+      if (provider.apiKey || !OAUTH_PROVIDER_IDS.has(provider.providerId)) {
+        continue;
+      }
+      const status = await this.openclawAuthService.getProviderOAuthStatus(
+        provider.providerId,
+      );
+      if (!status.connected) {
+        expired.add(provider.providerId);
+      }
+    }
+    return expired;
   }
 
   async listProviders() {
@@ -576,18 +636,9 @@ export class ModelProviderService {
       return "unknown";
     }
 
-    const cloudModels: Model[] = (desktopCloud.models ?? []).map((model) => ({
-      id: model.id,
-      name: model.name || model.id,
-      provider: "nexu",
-      description: "Cloud model via Nexu Link",
-    }));
-    const byokModels: Model[] = providers.flatMap((provider) =>
-      provider.models.map((modelId) => ({
-        id: `${provider.providerId}/${modelId}`,
-        name: modelId,
-        provider: provider.providerId,
-      })),
+    const { cloudModels, byokModels } = await this.getAvailableModels(
+      providers,
+      desktopCloud,
     );
     const knownModels = [...cloudModels, ...byokModels];
 
